@@ -7,38 +7,65 @@ import (
 	"github.com/kaashmonee/gcounter/utilities"
 )
 
+const (
+	visit int = iota
+	value
+)
+
+type requestData struct {
+	requestType int
+	payload     int
+}
+
 type Worker interface {
 	Visit()
 	Value() int
-	Logger() *log.Logger
 }
 
 type worker struct {
-	lg    *log.Logger
-	id    int
-	views []int
+	*log.Logger
+	id          int
+	views       []int
+	requestChan chan requestData
+	valueChan   chan int
 }
 
 func NewWorker(totalWorkers int, id int) Worker {
-	return &worker{
-		id:    id,
-		views: make([]int, totalWorkers),
-		lg:    utilities.NewInfoNodeLogger(id, os.Stdout),
+	w := &worker{
+		id:          id,
+		views:       make([]int, totalWorkers),
+		Logger:      utilities.NewInfoNodeLogger(id, os.Stdout),
+		requestChan: make(chan requestData),
+		valueChan:   make(chan int),
+	}
+	go w.startWorker()
+	return w
+}
+
+func (w *worker) startWorker() {
+	for {
+		select {
+		case request := <-w.requestChan:
+			switch request.requestType {
+			case visit:
+				w.views[w.id]++
+			case value:
+				total := 0
+				for _, count := range w.views {
+					total += count
+				}
+				w.valueChan <- total
+			}
+		}
 	}
 }
 
 func (w *worker) Visit() {
-	w.views[w.id]++
+	w.requestChan <- requestData{requestType: visit, payload: w.id}
 }
 
 func (w *worker) Value() int {
-	sum := 0
-	for _, cnt := range w.views {
-		sum += cnt
-	}
-	return sum
-}
-
-func (w *worker) Logger() *log.Logger {
-	return w.lg
+	w.requestChan <- requestData{requestType: value}
+	result := <-w.valueChan
+	return result
 }

@@ -7,6 +7,6 @@ import "github.com/kaashmonee/gcounter/server"
 // the server master should also trigger the nodes periodically so that they share data
 
 func main() {
-	srv := server.NewServer()
+	srv := server.NewServer(10)
 	srv.Serve()
 }
