@@ -3,11 +3,15 @@ package server
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/kaashmonee/gcounter/utilities"
 )
 
 type server struct {
+	*log.Logger
 }
 
 type Server interface {
@@ -16,17 +20,19 @@ type Server interface {
 
 var views int
 
-func displayPage(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("got / request")
+func (s *server) displayPage(w http.ResponseWriter, r *http.Request) {
+	s.Println("got / request")
 	io.WriteString(w, strconv.Itoa(views))
 }
 
 func NewServer() Server {
-	return &server{}
+	return &server{
+		Logger: utilities.NewLogger(nil),
+	}
 }
 
 func (s *server) Serve() {
-	http.HandleFunc("/", displayPage)
+	http.HandleFunc("/", s.displayPage)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		fmt.Println("err:", err)
