@@ -1,6 +1,11 @@
 package model
 
 type WorkerRequest struct {
-	RequestType int
-	Payload     any
+	Type    int
+	Payload any
+}
+
+type WorkerResponse struct {
+	Type    int
+	Payload any
 }

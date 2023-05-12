@@ -7,69 +7,70 @@ import (
 	"math/rand"
 	"net/http"
 
+	"github.com/kaashmonee/gcounter/constant"
 	"github.com/kaashmonee/gcounter/model"
 	"github.com/kaashmonee/gcounter/server/workers"
 	"github.com/kaashmonee/gcounter/utilities"
 )
 
 const (
-	display int = iota
-	merge
-)
-
-const (
 	defaultMergeIntervalMS = 100
 )
 
-type server struct {
+type Server struct {
 	*log.Logger
-	nodes           []workers.Worker
-	requests        chan model.ServerRequest
-	displayResponse chan int
+	nodes           []*workers.Worker
+	serverRequests  chan model.ServerRequest
+	serverResponse  chan model.ServerResponse
+	workerResponse  chan model.WorkerResponse
 	mergeIntervalMS int
 }
 
-type Server interface {
-	Serve()
-}
-
 // displayPage - chooses a node to display the page
-func (s *server) displayPage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) displayPage(w http.ResponseWriter, r *http.Request) {
 	s.Println("got / request")
-	s.requests <- model.ServerRequest{RequestType: display}
-	numViews := <-s.displayResponse
+	s.serverRequests <- model.ServerRequest{Type: constant.ServerRequest.Display()}
+	workerResponse := <-s.workerResponse
+	numViews := workerResponse.Payload.(int)
 	io.WriteString(w, fmt.Sprintf("This page has: %d views", numViews))
 }
 
-func (s *server) startProcessor() {
+func (s *Server) startProcessor() {
 	for {
 		select {
-		case request := <-s.requests:
-			switch request.RequestType {
-			case display:
+		case request := <-s.serverRequests:
+			switch request.Type {
+			case constant.ServerRequest.Display():
 				chosenWorker := s.nodes[rand.Intn(len(s.nodes))]
 				chosenWorker.Visit()
 				numViews := chosenWorker.Value()
-				s.displayResponse <- numViews
-			case merge:
-
+				s.serverResponse <- model.ServerResponse{Type: constant.ServerRequest.Display(), Payload: numViews}
+			case constant.WorkerRequest.Merge():
+				newViewsAll := request.Payload.([]int)
+				// Now send this to all the other nodes
+				for _, node := range s.nodes {
+					go func() {
+						node.MasterRequests <- model.ServerRequest{Type: constant.ServerRequest.Merge(), Payload: newViewsAll}
+					}()
+				}
 			}
 		}
 	}
 }
 
-func NewServer(numWorkers int) Server {
-	workersSlice := make([]workers.Worker, numWorkers)
+func NewServer(numWorkers int) *Server {
+	workersSlice := make([]*workers.Worker, numWorkers)
 	for i := 0; i < numWorkers; i++ {
-		w := workers.NewWorker(numWorkers, i)
+		masterRequestChan := make(chan model.ServerRequest)
+		w := workers.NewWorker(numWorkers, i, masterRequestChan)
 		workersSlice[i] = w
 	}
 
-	s := &server{
+	s := &Server{
 		Logger:          utilities.NewLogger(nil),
 		nodes:           workersSlice,
-		requests:        make(chan model.ServerRequest),
-		displayResponse: make(chan int),
+		serverRequests:  make(chan model.ServerRequest),
+		workerResponse:  make(chan model.WorkerResponse),
 		mergeIntervalMS: defaultMergeIntervalMS,
 	}
 
@@ -78,11 +79,7 @@ func NewServer(numWorkers int) Server {
 	return s
 }
 
-func (s *server) periodicMerge() {
-
-}
-
-func (s *server) Serve() {
+func (s *Server) Serve() {
 	http.HandleFunc("/", s.displayPage)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {

@@ -1,6 +1,11 @@
 package model
 
 type ServerRequest struct {
-	RequestType int
-	Payload     any
+	Type    int
+	Payload any
+}
+
+type ServerResponse struct {
+	Type    int
+	Payload any
 }
