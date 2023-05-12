@@ -28,9 +28,8 @@ type Server struct {
 
 // displayPage - chooses a node to display the page
 func (s *Server) displayPage(w http.ResponseWriter, r *http.Request) {
-	s.Println("got / request")
 	s.serverRequests <- model.ServerRequest{Type: constant.ServerRequest.Display()}
-	workerResponse := <-s.workerResponse
+	workerResponse := <-s.serverResponse
 	numViews := workerResponse.Payload.(int)
 	io.WriteString(w, fmt.Sprintf("This page has: %d views", numViews))
 }
@@ -70,6 +69,7 @@ func NewServer(numWorkers int) *Server {
 		Logger:          utilities.NewLogger(nil),
 		nodes:           workersSlice,
 		serverRequests:  make(chan model.ServerRequest),
+		serverResponse:  make(chan model.ServerResponse),
 		workerResponse:  make(chan model.WorkerResponse),
 		mergeIntervalMS: defaultMergeIntervalMS,
 	}
