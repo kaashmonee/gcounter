@@ -97,7 +97,7 @@ func NewServer(numWorkers int) *Server {
 
 func (s *Server) Serve() {
 	http.HandleFunc("/", s.displayPage)
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		fmt.Println("err:", err)
 	}
