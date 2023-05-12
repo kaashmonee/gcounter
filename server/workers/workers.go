@@ -56,7 +56,7 @@ func (w *Worker) startWorker() {
 				}
 			}
 		case <-time.After(w.getMergeDuration()):
-			// instead of doing the merge as an operation, just keep doing it
+
 		case masterRequest := <-w.MasterRequests:
 			switch masterRequest.Type {
 			case constant.ServerRequest.Merge():

@@ -49,9 +49,9 @@ func (s *Server) startProcessor() {
 				newViewsAll := request.Payload.([]int)
 				// Now send this to all the other nodes
 				for _, node := range s.nodes {
-					go func() {
-						node.MasterRequests <- model.ServerRequest{Type: constant.ServerRequest.Merge(), Payload: newViewsAll}
-					}()
+					go func(n *workers.Worker) {
+						n.MasterRequests <- model.ServerRequest{Type: constant.ServerRequest.Merge(), Payload: newViewsAll}
+					}(node)
 				}
 			}
 		}
@@ -74,8 +74,11 @@ func NewServer(numWorkers int) *Server {
 		mergeIntervalMS: defaultMergeIntervalMS,
 	}
 
+	s.Printf("initialized %d workers\n", numWorkers)
+
 	go s.startProcessor()
 
+	s.Println("started processor")
 	return s
 }
 
