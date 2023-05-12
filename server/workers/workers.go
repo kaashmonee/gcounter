@@ -14,7 +14,7 @@ type Worker struct {
 	*log.Logger
 	MasterRequests                 chan model.ServerRequest // Only pull from this channel
 	WorkerRequestToMaster          chan model.WorkerRequest
-	id                             int
+	ID                             int
 	views                          []int
 	workerRequests                 chan model.WorkerRequest
 	workerResponses                chan model.WorkerResponse
@@ -24,7 +24,7 @@ type Worker struct {
 
 func NewWorker(totalWorkers int, id int, masterRequests chan model.ServerRequest) *Worker {
 	w := &Worker{
-		id:                             id,
+		ID:                             id,
 		views:                          make([]int, totalWorkers),
 		Logger:                         utilities.NewInfoNodeLogger(id, os.Stdout),
 		workerRequests:                 make(chan model.WorkerRequest),
@@ -44,7 +44,7 @@ func (w *Worker) startWorker() {
 		case request := <-w.workerRequests:
 			switch request.Type {
 			case constant.Request.Visit():
-				w.views[w.id]++
+				w.views[w.ID]++
 			case constant.Request.Value():
 				total := 0
 				for _, count := range w.views {
@@ -76,7 +76,7 @@ func (w *Worker) getMergeDuration() time.Duration {
 }
 
 func (w *Worker) Visit() {
-	w.workerRequests <- model.WorkerRequest{Type: constant.Request.Visit(), Payload: w.id}
+	w.workerRequests <- model.WorkerRequest{Type: constant.Request.Visit(), Payload: w.ID}
 }
 
 func (w *Worker) Value() int {

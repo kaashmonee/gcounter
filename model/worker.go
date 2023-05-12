@@ -6,6 +6,7 @@ type WorkerRequest struct {
 }
 
 type WorkerResponse struct {
+	NodeID  int
 	Type    int
 	Payload any
 }

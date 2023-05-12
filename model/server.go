@@ -6,6 +6,7 @@ type ServerRequest struct {
 }
 
 type ServerResponse struct {
-	Type    int
-	Payload any
+	Type         int
+	Payload      any
+	WorkerNodeID int
 }

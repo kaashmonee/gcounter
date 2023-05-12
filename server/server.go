@@ -29,9 +29,10 @@ type Server struct {
 // displayPage - chooses a node to display the page
 func (s *Server) displayPage(w http.ResponseWriter, r *http.Request) {
 	s.serverRequests <- model.ServerRequest{Type: constant.Request.Display()}
-	workerResponse := <-s.serverResponse
-	numViews := workerResponse.Payload.(int)
-	io.WriteString(w, fmt.Sprintf("This page has: %d views", numViews))
+	serverResponseFromWorker := <-s.serverResponse
+	numViews := serverResponseFromWorker.Payload.(int)
+	io.WriteString(w, fmt.Sprintf("This page has: %d views\n", numViews))
+	io.WriteString(w, fmt.Sprintf("Served by node: %d/%d", serverResponseFromWorker.WorkerNodeID+1, len(s.nodes)))
 }
 
 // this just checks if any of the workers have sent a signal
@@ -52,7 +53,7 @@ func (s *Server) startProcessor() {
 				chosenWorker := s.nodes[rand.Intn(len(s.nodes))]
 				chosenWorker.Visit()
 				numViews := chosenWorker.Value()
-				s.serverResponse <- model.ServerResponse{Type: constant.Request.Display(), Payload: numViews}
+				s.serverResponse <- model.ServerResponse{Type: constant.Request.Display(), Payload: numViews, WorkerNodeID: chosenWorker.ID}
 			case constant.Request.Merge():
 				newViewsAll := request.Payload.([]int)
 				// Now send this to all the other nodes
