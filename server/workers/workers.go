@@ -13,10 +13,11 @@ import (
 type Worker struct {
 	*log.Logger
 	MasterRequests                 chan model.ServerRequest // Only pull from this channel
+	WorkerRequestToMaster          chan model.WorkerRequest
 	id                             int
 	views                          []int
-	requestChan                    chan model.WorkerRequest
-	valueChan                      chan int
+	workerRequests                 chan model.WorkerRequest
+	workerResponses                chan model.WorkerResponse
 	defaultMergeIntervalMS         float64
 	intervalRandomizationOffsetPct float64
 }
@@ -26,9 +27,10 @@ func NewWorker(totalWorkers int, id int, masterRequests chan model.ServerRequest
 		id:                             id,
 		views:                          make([]int, totalWorkers),
 		Logger:                         utilities.NewInfoNodeLogger(id, os.Stdout),
-		requestChan:                    make(chan model.WorkerRequest),
-		valueChan:                      make(chan int),
+		workerRequests:                 make(chan model.WorkerRequest),
+		workerResponses:                make(chan model.WorkerResponse),
 		MasterRequests:                 masterRequests,
+		WorkerRequestToMaster:          make(chan model.WorkerRequest),
 		defaultMergeIntervalMS:         100,
 		intervalRandomizationOffsetPct: 20,
 	}
@@ -39,27 +41,23 @@ func NewWorker(totalWorkers int, id int, masterRequests chan model.ServerRequest
 func (w *Worker) startWorker() {
 	for {
 		select {
-		case request := <-w.requestChan:
+		case request := <-w.workerRequests:
 			switch request.Type {
-			case constant.WorkerRequest.Visit():
+			case constant.Request.Visit():
 				w.views[w.id]++
-			case constant.WorkerRequest.Value():
+			case constant.Request.Value():
 				total := 0
 				for _, count := range w.views {
 					total += count
 				}
-				w.valueChan <- total
-			case constant.WorkerRequest.Update():
-				data := request.Payload.([]int)
-				for i := 0; i < len(w.views); i++ {
-					w.views[i] = data[i]
-				}
+				w.workerResponses <- model.WorkerResponse{Type: constant.Request.Display(), Payload: total}
 			}
+		// request to merge after a somewhat random amount of time
 		case <-time.After(w.getMergeDuration()):
-
+			w.WorkerRequestToMaster <- model.WorkerRequest{Type: constant.Request.Merge(), Payload: w.views}
 		case masterRequest := <-w.MasterRequests:
 			switch masterRequest.Type {
-			case constant.ServerRequest.Merge():
+			case constant.Request.Merge():
 				masterViews := masterRequest.Payload.([]int)
 				for i := 0; i < len(masterViews); i++ {
 					w.views[i] = utilities.Max(w.views[i], masterViews[i])
@@ -78,11 +76,11 @@ func (w *Worker) getMergeDuration() time.Duration {
 }
 
 func (w *Worker) Visit() {
-	w.requestChan <- model.WorkerRequest{Type: constant.WorkerRequest.Visit(), Payload: w.id}
+	w.workerRequests <- model.WorkerRequest{Type: constant.Request.Visit(), Payload: w.id}
 }
 
 func (w *Worker) Value() int {
-	w.requestChan <- model.WorkerRequest{Type: constant.WorkerRequest.Value()}
-	result := <-w.valueChan
-	return result
+	w.workerRequests <- model.WorkerRequest{Type: constant.Request.Value()}
+	result := <-w.workerResponses
+	return result.Payload.(int)
 }

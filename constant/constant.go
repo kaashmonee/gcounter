@@ -10,19 +10,13 @@ const (
 )
 
 var (
-	ServerRequest serverRequest
-	WorkerRequest workerRequest
+	Request request
 )
 
-type serverRequest int
+type request int
 
-func (s serverRequest) Display() int { return display }
-func (s serverRequest) Merge() int   { return merge }
-
-// Worker request constants
-type workerRequest int
-
-func (w workerRequest) Visit() int  { return visit }
-func (w workerRequest) Value() int  { return value }
-func (w workerRequest) Update() int { return update }
-func (w workerRequest) Merge() int  { return merge }
+func (r request) Display() int { return display }
+func (r request) Merge() int   { return merge }
+func (r request) Visit() int   { return visit }
+func (r request) Value() int   { return value }
+func (r request) Update() int  { return update }

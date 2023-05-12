@@ -28,10 +28,19 @@ type Server struct {
 
 // displayPage - chooses a node to display the page
 func (s *Server) displayPage(w http.ResponseWriter, r *http.Request) {
-	s.serverRequests <- model.ServerRequest{Type: constant.ServerRequest.Display()}
+	s.serverRequests <- model.ServerRequest{Type: constant.Request.Display()}
 	workerResponse := <-s.serverResponse
 	numViews := workerResponse.Payload.(int)
 	io.WriteString(w, fmt.Sprintf("This page has: %d views", numViews))
+}
+
+// this just checks if any of the workers have sent a signal
+func (s *Server) workerListener(requestsFromWorker <-chan model.WorkerRequest) {
+	for {
+		request := <-requestsFromWorker
+		serverRequest := model.ServerRequest{Type: request.Type, Payload: request.Payload}
+		s.serverRequests <- serverRequest
+	}
 }
 
 func (s *Server) startProcessor() {
@@ -39,17 +48,17 @@ func (s *Server) startProcessor() {
 		select {
 		case request := <-s.serverRequests:
 			switch request.Type {
-			case constant.ServerRequest.Display():
+			case constant.Request.Display():
 				chosenWorker := s.nodes[rand.Intn(len(s.nodes))]
 				chosenWorker.Visit()
 				numViews := chosenWorker.Value()
-				s.serverResponse <- model.ServerResponse{Type: constant.ServerRequest.Display(), Payload: numViews}
-			case constant.WorkerRequest.Merge():
+				s.serverResponse <- model.ServerResponse{Type: constant.Request.Display(), Payload: numViews}
+			case constant.Request.Merge():
 				newViewsAll := request.Payload.([]int)
 				// Now send this to all the other nodes
 				for _, node := range s.nodes {
 					go func(n *workers.Worker) {
-						n.MasterRequests <- model.ServerRequest{Type: constant.ServerRequest.Merge(), Payload: newViewsAll}
+						n.MasterRequests <- model.ServerRequest{Type: constant.Request.Merge(), Payload: newViewsAll}
 					}(node)
 				}
 			}
@@ -77,6 +86,9 @@ func NewServer(numWorkers int) *Server {
 	s.Printf("initialized %d workers\n", numWorkers)
 
 	go s.startProcessor()
+	for _, node := range s.nodes {
+		go s.workerListener(node.WorkerRequestToMaster)
+	}
 
 	s.Println("started processor")
 	return s
