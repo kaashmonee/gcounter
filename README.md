@@ -4,6 +4,8 @@ Toy GCounter CRDT implementation
 
 ## About 
 
+Video Demo: https://www.youtube.com/watch?v=Q9IIfNYPeRw&t=62s
+
 I kept hearing about CRDTs and wanted to learn more about them. I
 used ChatGPT to basically be my teacher and I'll jot down the 
 rough process I used with ChatGPT screenshots for reproducibility and 
